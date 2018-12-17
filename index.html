@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+</head>
+<body>
+<div id="text" ></div>
+<div id="player"></div>
+<div id="display"></div>
+<div id="code"></div>
+<hr>
+<button onclick="initBoard()">initBoard</button>
+<button onclick="eject()">ejectCode</button>
+<hr>
+<div id="result"></div>
+<script>
+    // 関数1：（入力）盤面状態、手番　（出力）次の手
+    // 関数2：（入力）盤面状態、次の手　（出力）次の手を打った後の盤面状態
+    // 関数3：（入力）盤面状態、手番　（出力）終了判定、終了の場合は点数の計算
+
+    let height=4;//盤面の縦の大きさ
+    let width=4;//横の大きさ
+    let board=[//適当に配列用意。縦横12以上あればいい
+        [],[],[],[],[],[],[],[],[],[],[],[]
+    ];
+    let player=1;//1:黒(先手)、2:白
+    let count=0;//じっくり返した数をカウント、0なら手番を渡さない
+    let passCount=0;//自動パス管理用
+    let passCheck=0;
+    let blackPoints=0;
+    let whitePoints=0;
+    let judge="";
+
+    initBoard();
+    function initBoard() {//初期配置＆リセット
+        player=1;//先手は黒
+        //盤面作成
+        for (let i = 0; i < height+4; i++) {
+            for (let j = 0; j < width+4; j++) {
+                board[i][j]=0;
+            }
+        }
+        //中央の4つ
+        board[(height+4)/2][(width+4)/2]=2;
+        board[(height+4)/2-1][(width+4)/2]=1;
+        board[(height+4)/2][(width+4)/2-1]=1;
+        board[(height+4)/2-1][(width+4)/2-1]=2;
+        refreshBoard();
+        document.getElementById("player").innerHTML="player:"+trans(player);
+        document.getElementById("result").innerHTML="";
+        blackPoints=0;
+        whitePoints=0;
+        judge="";
+    }
+
+    function refreshBoard() {//配列の変更を盤面に反映
+        let out="<table border='1'>";
+        for (let i = 0; i < height; i++) {
+            out+="<tr>";
+            for (let j = 0; j < width; j++) {
+                out+="<td onclick='check("+    (i+2)    +","+    (j+2)    +","+    player    +")'>"+    trans(board[i+2][j+2])    +"</td>";
+            }
+            out+="</tr>";
+        }
+        out+="</table>";
+        console.log(board);//盤面をコンソール出力
+        document.getElementById("display").innerHTML=out;
+    }
+
+    function eject() {//10進数コード生成
+        let code=0;
+        let ex=0;
+        for (let i = 2; i < height+2; i++) {
+            for (let j = 2; j <height+2 ; j++) {
+                code+=board[i][j]*(3**ex);
+                ex++;
+            }
+        }
+        document.getElementById("code").innerHTML="code:"+code;
+        code=0;
+        ex=0;
+    }
+    function player2(player) {//相手を出力
+        return player===1?2:1;
+    }
+
+    function set(y,x,dy,dx) {//指定した場所に設置、間を返す
+        if(!(dx===0&&dy===0)){
+            if (!(board[y+dy][x+dx] === player || board[y+dy][x+dx] === 0)) {
+                console.log("相手の石と隣接");
+                let flag=true;
+                let i=1;
+                do {
+                    switch (board[y+(i+1)*dy][x+(i+1)*dx]) {
+                        case player://自分の色
+                            console.log('隣接先が自分の色なので間を反転');
+                            for (let j = 0; j < i; j++) {
+                                board[y+(j+1)*dy][x+(j+1)*dx]=player;
+                            }
+                            board[y][x] = player;
+                            flag = false;
+                            count++;
+                            refreshBoard();
+                            break;
+
+                        case player2(player)://相手の色
+                            console.log('処理継続（隣接先が相手の色）');
+                            i++;
+                            break;
+
+                        case 0://空きマス
+                            console.log('置けない（隣接先が空）');
+                            flag = false;
+                            break;
+                    }
+                }while (flag)
+            }
+        }
+    }
+
+    function check(y,x) {//方向生成
+        //-1,-1   0,-1   +1,-1
+        //-1, 0   0, 0   +1, 0
+        //-1,+1   0,+1   +1,+1
+        //上記を出力
+        if(board[y][x]===0){
+            for (let i = -1; i <=1 ; i++) {
+                for (let j = -1; j <=1 ; j++) {
+                    set(y,x,i,j);
+                }
+            }
+            if(count>=1){
+                player=player2(player);
+                checkPass();
+                document.getElementById("player").innerHTML="player:"+trans(player);
+                // setTimeout(enemy,1000);
+            }
+            count=0;
+        }
+        // enemy();
+    }
+    function checkPass(){//すべてのマスでの判定check流用できそう##関数３にあたる
+        for (let y = 2; y < height+2; y++) {
+            for (let x = 2; x < width+2; x++) {
+                if(board[y][x]===0){
+                    for (let dy = -1; dy <=1 ; dy++) {
+                        for (let dx = -1; dx <=1 ; dx++) {
+                            if(!(dx===0&&dy===0)){
+                                if (board[y+dy][x+dx] === player || board[y+dy][x+dx] === 0) {
+                                } else {
+                                    let flag=true;
+                                    let i=1;
+                                    do {
+                                        switch (board[y+(i+1)*dy][x+(i+1)*dx]) {
+                                            case player://自分の色
+                                                flag = false;
+                                                console.log("y:"+(x-2)+",x:"+(y-2));
+                                                passCount++;
+                                                break;
+
+                                            case player2(player)://相手の色
+                                                i++;
+                                                break;
+
+                                            case 0://空きマス
+                                                flag = false;
+                                                break;
+                                        }
+                                    }while (flag)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        console.log("置ける場所の数:"+passCount);
+        if(passCount===0){
+            alert(player+"は置ける場所がないためパスします");
+            passCheck++;
+            player=player2(player);
+        }else {
+            passCheck=0;
+        }
+        passCount=0;
+        if(passCheck===1){
+            checkPass();
+        }else if (passCheck===2){
+            endGame();
+            passCheck=0;
+        }
+    }
+
+    function endGame() {
+        for (let i = 2; i < height+2; i++) {
+            for (let j = 2; j < width+2; j++) {
+                if(board[j][i]===1){
+                    blackPoints++;
+                }else if(board[j][i]===2){
+                    whitePoints++;
+                }
+            }
+        }
+        if(blackPoints===whitePoints){
+            judge="引き分け";
+        }else if (blackPoints>whitePoints){
+            judge="黒の勝ち"
+        } else if (blackPoints<whitePoints){
+            judge="白の勝ち"
+        }
+        document.getElementById("player").innerHTML="";
+        document.getElementById("result").innerHTML="<p>black:"+blackPoints+"</p>"+"<p>white:"+whitePoints+"</p>"+"<p>"+judge+"</p>";
+    }
+
+    function trans(num) {//012を　●◯に変換
+        let out;
+        switch (num) {
+            case 0:
+                out="　";
+                break;
+            case 1:
+                out="●";
+                break;
+            case 2:
+                out="○";
+                break;
+        }
+        return out;
+    }
+//###########################以下未実装
+    // let weightArr =[];
+    // let index=0;
+    // function enemy() {
+    //     // alert("enemy");
+    //     for (let y = 2; y < height+2; y++) {
+    //         for (let x = 2; x < width+2; x++) {
+    //             if(board[y][x]===0){
+    //                 for (let dy = -1; dy <=1 ; dy++) {
+    //                     for (let dx = -1; dx <=1 ; dx++) {
+    //                         if(!(dx===0&&dy===0)){
+    //                             if (board[y+dy][x+dx] === player || board[y+dy][x+dx] === 0) {
+    //                             } else {
+    //                                 let flag=true;
+    //                                 let i=1;
+    //                                 do {
+    //                                     switch (board[y+(i+1)*dy][x+(i+1)*dx]) {
+    //                                         case player://自分の色
+    //                                             flag = false;
+    //                                             // console.log((x-2)+","+(y-2));
+    //                                             weightArr[index]={
+    //                                                 weight:Math.random(),
+    //                                                 x:x,
+    //                                                 y:y,
+    //                                             };
+    //                                             index++;
+    //                                             break;
+    //
+    //                                         case player2(player)://相手の色
+    //                                             i++;
+    //                                             break;
+    //
+    //                                         case 0://空きマス
+    //                                             flag = false;
+    //                                             break;
+    //                                     }
+    //                                 }while (flag)
+    //                             }
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    //
+    //     // console.log(weightArr);
+    //     let v=0;
+    //     let maxX=0;
+    //     let maxY=0;
+    //     for (let i = 0; i < weightArr.length; i++) {
+    //         if (v<weightArr[i].weight){
+    //             v=weightArr[i].weight;
+    //             maxX = weightArr[i].x;
+    //             maxY=weightArr[i].y;
+    //         }
+    //     }
+    //     for (let i = -1; i <=1 ; i++) {
+    //         for (let j = -1; j <=1 ; j++) {
+    //             set(maxY,maxX,i,j);
+    //         }
+    //     }
+    //     if(count>=1){
+    //         player=player2(player);
+    //         checkPass();
+    //         document.getElementById("player").innerHTML="player:"+trans(player);
+    //     }
+    // }
+    //
+    //
+    // let config = {
+    //     apiKey: "AIzaSyDFN7en2qobt2pi9mCBuIIga1rDf_lrQJU",
+    //     authDomain: "othello-9cefb.firebaseapp.com",
+    //     databaseURL: "https://othello-9cefb.firebaseio.com",
+    //     projectId: "othello-9cefb",
+    //     storageBucket: "othello-9cefb.appspot.com",
+    //     messagingSenderId: "677571870778"
+    // };
+    // firebase.initializeApp(config);
+    //
+    // let db = firebase.database();
+    //
+    // for (let y = 2; y < height+2; y++) {//初期データ投入(角は+20、辺は+10の補正)
+    //     for (let x = 2; x < width+2; x++) {
+    //         let inWeight=0;
+    //         if(x===2)inWeight+=10;
+    //         if (y===2)inWeight+=10;
+    //         if(x===9)inWeight+=10;
+    //         if(y===9)inWeight+=10;
+    //         db.ref(y+"/"+x).set({
+    //             weight :inWeight+Math.random(),
+    //         });
+    //     }
+    // }
+    //
+    //
+    // db.ref(4+'/'+4).once('value').then(snapshot=>{
+    //     return (snapshot.val()) || 'Anonymous';
+    // });
+
+    // db.ref(4+'/'+4).once('value').then(function(snapshot) {
+    //     let weight = (snapshot.val()) || 'Anonymous';
+    //     console.log(username);
+    // });
+    // function  getWeight(x,y) {
+    // let weight;
+    //     db.ref(3+'/'+3).once('value').then(snapshot=>{
+    //         return (snapshot.val()) || 'Anonymous';
+    //     }).then(v=>{
+    //         weight=v;
+    //         // alert(weight.weight);
+    //         //配置処理
+    //     });
+    //     alert(weight);
+    // // }
+    // const textArray = document.getElementById("text").innerHTML;
+    // alert(textArray);
+</script>
+</body>
+</html>
